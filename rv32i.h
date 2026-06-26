@@ -62,3 +62,8 @@ struct dmem_input_t {
 struct dmem_output_t {
 	uint32_t dout;
 };
+
+struct imem_output_t imem(struct imem_input_t in, uint32_t *imem_data);
+struct regfile_output_t regfile(struct regfile_input_t in, uint32_t *reg_data);
+struct alu_output_t alu(struct alu_input_t in);
+struct dmem_output_t dmem(struct dmem_input_t in, uint32_t *dmem_data);

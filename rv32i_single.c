@@ -96,3 +96,47 @@ int main (int argc, char *argv[]) {
 
 	return 1;
 }
+
+struct imem_output_t imem(struct imem_input_t in, uint32_t *imem_data) {
+	struct imem_output_t out;
+	out.dout = imem_data[in.addr >> 2];
+	return out;
+}
+
+struct regfile_output_t regfile(struct regfile_input_t in, uint32_t *reg_data) {
+	struct regfile_output_t out;
+	out.rs1_dout = (in.rs1 == 0)? 0:reg_data[in.rs1];
+	out.rs2_dout = (in.rs2 == 0)? 0:reg_data[in.rs2];
+	if (in.reg_write == 1 && in.rd !=0) reg_data[in.rd] = in.rd_din;
+	return out;
+}
+
+struct alu_output_t alu(struct alu_input_t in) {
+	struct alu_output_t out;
+	switch (in.alu_control)
+	{
+		case 0x0:	out.result = in.in1 & in.in2;	break;
+		case 0x1:	out.result = in.in1 | in.in2;	break;
+		case 0x2:	out.result = in.in1 + in.in2;	break;
+		case 0x3:	out.result = in.in1 ^ in.in2;	break;
+		case 0x6:	out.result = in.in1 - in.in2;	break;
+		case 0x4:	out.result = in.in1 << (in.in2 & 0x1f);	break;
+		case 0x5:	out.result = in.in1 >> (in.in2 & 0x1f);	break;
+		case 0x8:	out.result = (int32_t)in.in1 >> (in.in2 & 0x1f);	break;
+		case 0x7:	out.result = ((int32_t)in.in1 < (int32_t)in.in2)? 1:0;	break;
+		case 0x9:	out.result = (in.in1 < in.in2)? 1:0;	break;
+		default:	out.result = in.in1 + in.in2;	break;
+	}
+
+	out.zero = (out.result == 0)? 1:0;
+	out.sign = (out.result >> 31) & 1;
+	return out;
+}
+
+struct dmem_output_t dmem(struct dmem_input_t in, uint32_t *dmem_data) {
+	struct dmem_output_t out;
+
+	
+
+	return out;
+}
