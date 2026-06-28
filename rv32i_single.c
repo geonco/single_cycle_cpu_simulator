@@ -135,8 +135,87 @@ struct alu_output_t alu(struct alu_input_t in) {
 
 struct dmem_output_t dmem(struct dmem_input_t in, uint32_t *dmem_data) {
 	struct dmem_output_t out;
+	out.dout = 0;
 
+	// 접근 바이트 수: sz 0=byte(1), 1=half(2), 2=word(4)
+	uint32_t nbytes = (in.sz == 0)? 1 : (in.sz == 1)? 2 : 4;
+	uint32_t b;
+
+	// 바이트 단위로 처리 -> 워드 경계 넘는 unaligned 접근도 동작 (little-endian)
+	if (in.rd_en == 1) {
+		for (b = 0; b < nbytes; b++) {
+			uint32_t a = in.addr + b;			// 바이트 주소
+			uint32_t widx = a >> 2;				// 몇번째 워드
+			uint32_t boff = (a & 3) * 8;		// 워드 안 비트 오프셋
+			uint32_t byte = (dmem_data[widx] >> boff) & 0xff;
+			out.dout |= byte << (b * 8);		// 낮은 주소가 LSB
+		}
+	}
+
+	if (in.wr_en == 1) {
+		for (b = 0; b < nbytes; b++) {
+			uint32_t a = in.addr + b;
+			uint32_t widx = a >> 2;
+			uint32_t boff = (a & 3) * 8;
+			uint32_t byte = (in.din >> (b * 8)) & 0xff;
+			dmem_data[widx] = (dmem_data[widx] & ~(0xffu << boff)) | (byte << boff);
+		}
+	}
+
+	return out;
+}
+
+struct control_output_t control(struct control_input_t in) {
+	struct control_output_t out;
+
+	uint32_t opcode = in.inst & 0x7f;
+	uint32_t funct3 = (in.inst >> 12) & 0x7;
+	uint32_t funct7 = (in.inst >> 25) & 0x7f;
+
+	out.branch = 0;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x0)) << 0;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x1)) << 1;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x4)) << 2;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x5)) << 3;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x6)) << 4;
+	out.branch |= ((opcode == 0x63) && (funct3 == 0x7)) << 5;
+
+	out.lui = (opcode == 0x37);
+	out.auipc = (opcode == 0x17);
 	
+	out.jal = (opcode == 0x6f);
+	out.jalr = (opcode == 0x67);
+
+	out.mem_read = (opcode == 0x03);
+	out.mem_write = (opcode == 0x23);
+	out.mem_to_reg = (opcode == 0x03);
+	out.reg_write = (opcode == 0x03) || (opcode == 0x33) || (opcode == 0x13) || out.lui || out.auipc || out.jal || out.jalr;
+	out.alu_src = (opcode == 0x03) || (opcode == 0x23) || (opcode == 0x13); 
+
+	out.alu_op = 0;
+	out.alu_op |= (opcode == 0x63);
+	out.alu_op |= ((opcode == 0x33) || (opcode == 0x13)) << 1;
+
+	out.sz = funct3 & 0x3;
+	
+	switch (out.alu_op)
+	{
+		case 0: out.alu_control = 0x2;	break;
+		case 1: out.alu_control = 0x6;	break;
+		case 2: switch (funct3)
+		{
+			case 0:	out.alu_control = (funct7 == 0x20 && opcode == 0x33)? 0x6 : 0x2;	break;
+			case 1:	out.alu_control = 0x4;	break;
+			case 2:	out.alu_control = 0x7;	break;
+			case 3:	out.alu_control = 0x9;	break;
+			case 4:	out.alu_control = 0x3;	break;
+			case 5:	out.alu_control = (funct7 == 0x20)? 0x8 : 0x5;	break;
+			case 6:	out.alu_control = 0x1;	break;
+			case 7:	out.alu_control = 0x0;	break;
+			default:	out.alu_control = 0x2;	break;
+		}	break;
+		default: out.alu_control = 0x2;
+	}
 
 	return out;
 }

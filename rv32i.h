@@ -63,7 +63,27 @@ struct dmem_output_t {
 	uint32_t dout;
 };
 
+struct control_input_t {
+	uint32_t inst;
+};
+struct control_output_t {
+	uint32_t branch;
+	uint32_t mem_read;
+	uint32_t mem_write;
+	uint32_t mem_to_reg;
+	uint32_t reg_write;
+	uint32_t alu_src;
+	uint32_t alu_op;
+	uint32_t alu_control;
+	uint32_t lui;
+	uint32_t auipc;
+	uint32_t jal;
+	uint32_t jalr;
+	uint32_t sz;
+};
+
 struct imem_output_t imem(struct imem_input_t in, uint32_t *imem_data);
 struct regfile_output_t regfile(struct regfile_input_t in, uint32_t *reg_data);
 struct alu_output_t alu(struct alu_input_t in);
 struct dmem_output_t dmem(struct dmem_input_t in, uint32_t *dmem_data);
+struct control_output_t control(struct control_input_t in);
