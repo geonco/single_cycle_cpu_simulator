@@ -219,3 +219,26 @@ struct control_output_t control(struct control_input_t in) {
 
 	return out;
 }
+
+struct imm_output_t immgen(struct imm_input_t in) {
+	struct imm_output_t out;
+	uint32_t opcode = in.inst & 0x7f;
+	uint32_t imm12;
+
+	switch (opcode)
+	{
+		case 0x23:	imm12 = ((in.inst >> 25 & 0x7f) << 5 | (in.inst >> 7 & 0x1f));	break;
+		case 0x63:	imm12 = ((in.inst >> 31 & 0x1) << 11 | (in.inst >> 7 & 0x1) << 10 | (in.inst >> 25 & 0x3f) << 4 | (in.inst >> 8 & 0xf));	break; 
+		default:	imm12 = (in.inst >> 20 & 0xfff);	break;
+	}
+
+	out.imm32 = (imm12 & 0x800)? (0xfffff000 | imm12) : imm12;
+	out.imm32_branch = out.imm32 << 1;
+
+	out.imm32_u = ((in.inst >> 12) & 0xfffff) << 12 & 0xfffff000;
+	
+	uint32_t jal = (in.inst >> 31 & 0x1) << 20 | (in.inst >> 12 & 0xff) << 12 | (in.inst >> 20 & 0x1) << 11 | (in.inst >> 21 & 0x3ff) << 1 | 0;
+	out.imm32_jal = (jal & 0x100000)? (0xffe00000 | jal) : jal;
+
+	return out;
+}

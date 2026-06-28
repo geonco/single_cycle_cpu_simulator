@@ -82,8 +82,19 @@ struct control_output_t {
 	uint32_t sz;
 };
 
+struct imm_input_t {
+	uint32_t inst;
+};
+struct imm_output_t {
+	uint32_t imm32;
+	uint32_t imm32_branch;
+	uint32_t imm32_u;
+	uint32_t imm32_jal;
+};
+
 struct imem_output_t imem(struct imem_input_t in, uint32_t *imem_data);
 struct regfile_output_t regfile(struct regfile_input_t in, uint32_t *reg_data);
 struct alu_output_t alu(struct alu_input_t in);
 struct dmem_output_t dmem(struct dmem_input_t in, uint32_t *dmem_data);
 struct control_output_t control(struct control_input_t in);
+struct imm_output_t immgen(struct imm_input_t in);
