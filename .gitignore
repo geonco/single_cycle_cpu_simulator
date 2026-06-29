@@ -5,3 +5,6 @@
 rv32i_single
 rv32i_single.exe
 report.txt
+
+# docx
+*.docx
