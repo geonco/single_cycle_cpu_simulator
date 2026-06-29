@@ -165,6 +165,12 @@ int main (int argc, char *argv[]) {
 		cc++;
 	}
 
+	// dump register file & data memory to report.txt
+	FILE *f_report = fopen("report.txt", "w");
+	for (i = 0; i < 32; i++) fprintf(f_report, "RF[%02d]: %08x\n", i, reg_data[i]);
+	for (i = 0; i < 8;  i++) fprintf(f_report, "DMEM[%02d]: %08x\n", i, dmem_data[i]);
+	fclose(f_report);
+
 	free(reg_data);
 	free(imem_data);
 	free(dmem_data);

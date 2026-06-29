@@ -1,2 +1,7 @@
 # PDF course materials
 *.pdf
+
+# build / run artifacts
+rv32i_single
+rv32i_single.exe
+report.txt
