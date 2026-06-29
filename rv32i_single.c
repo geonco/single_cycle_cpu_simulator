@@ -74,19 +74,94 @@ int main (int argc, char *argv[]) {
 	uint32_t pc_curr, pc_next;	// program counter
 	struct imem_input_t imem_in;
 	struct imem_output_t imem_out;
+	struct regfile_input_t regfile_in;
+	struct regfile_output_t regfile_out;
+	struct alu_input_t alu_in;
+	struct alu_output_t alu_out;
+	struct dmem_input_t dmem_in;
+	struct dmem_output_t dmem_out;
+	struct control_input_t control_in;
+	struct control_output_t control_out;
+	struct imm_input_t imm_in;
+	struct imm_output_t imm_out;
+
+	pc_curr = 0;
 
 	uint32_t cc = 2;	// clock count
 	while (cc < CLK_NUM) {
 		// instruction fetch
+		imem_in.addr = pc_curr;
 		imem_out = imem(imem_in, imem_data);
-		// instruction decode
-		regfile_out = regfile(regfile_in, reg_data);
-		// execution
-		alu_out = alu(alu_in);
-		// memory
-		dmem_out = dmem(dmem_in, dmem_data);
-		// write-back
+		uint32_t inst = imem_out.dout;
 		
+		// instruction decode
+		control_in.inst = inst;
+		control_out = control(control_in);
+
+		imm_in.inst = inst;
+		imm_out = immgen(imm_in);
+
+		uint32_t funct3 = (inst >> 12) & 0x7;
+		regfile_in.rs1 = (inst >> 15) & 0x1f;
+		regfile_in.rs2 = (inst >> 20) & 0x1f;
+		regfile_in.rd = (inst >> 7) & 0x1f;
+		regfile_in.reg_write = 0;
+		regfile_out = regfile(regfile_in, reg_data);
+
+		// execution
+		alu_in.in1 = regfile_out.rs1_dout;
+		alu_in.in2 = (control_out.alu_src == 1)? imm_out.imm32 : regfile_out.rs2_dout;
+		alu_in.alu_control = control_out.alu_control;
+		alu_out = alu(alu_in);
+
+		// memory
+		dmem_in.addr = alu_out.result;
+		dmem_in.din = regfile_out.rs2_dout;
+		dmem_in.rd_en = control_out.mem_read;
+		dmem_in.sz = control_out.sz;
+		dmem_in.wr_en = control_out.mem_write;
+		dmem_out = dmem(dmem_in, dmem_data);
+
+		uint32_t dmem_dout_ext = dmem_out.dout;
+		switch (funct3)
+		{
+			case 0:	dmem_dout_ext |= (dmem_out.dout >> 7 & 0x1) ? 0xffffff00 : 0x00000000;	break;
+			case 1: dmem_dout_ext |= (dmem_out.dout >> 15 & 0x1) ? 0xffff0000 : 0x00000000;	break;
+			case 2: dmem_dout_ext = dmem_dout_ext;	break;
+			case 4:	dmem_dout_ext &= 0x000000ff;	break;
+			case 5:	dmem_dout_ext &= 0x0000ffff;	break;
+			default:	dmem_dout_ext = dmem_dout_ext;	break;
+		}
+		dmem_out.dout = dmem_dout_ext;
+
+		// write-back
+		uint32_t rd_din;
+		if (control_out.lui)							rd_din = imm_out.imm32_u;
+		else if (control_out.auipc)						rd_din = pc_curr + imm_out.imm32_u;
+		else if (control_out.jal || control_out.jalr)	rd_din = pc_curr + 4;
+		else if (control_out.mem_to_reg)				rd_din = dmem_dout_ext;
+		else											rd_din = alu_out.result;
+
+		regfile_in.rd_din =	rd_din;
+		regfile_in.reg_write = control_out.reg_write;
+		regfile_out = regfile(regfile_in, reg_data);
+		
+		// pc update
+		uint32_t rs1_lt_rs2_u = (regfile_out.rs1_dout < regfile_out.rs2_dout);
+		uint32_t taken = ((control_out.branch >> 0) & 1 & alu_out.zero) || 
+						 ((control_out.branch >> 1) & 1 & ~alu_out.zero) ||
+						 ((control_out.branch >> 2) & 1 & alu_out.sign) ||
+						 ((control_out.branch >> 3) & 1 & ~alu_out.sign) ||
+						 ((control_out.branch >> 4) & 1 & rs1_lt_rs2_u) ||
+						 ((control_out.branch >> 5) & 1 & ~rs1_lt_rs2_u);
+
+		if (control_out.jal)			pc_next = pc_curr + imm_out.imm32_jal;
+		else if (control_out.jalr)		pc_next = regfile_out.rs1_dout + imm_out.imm32;
+		else if (taken)					pc_next = pc_curr + imm_out.imm32_branch;
+		else							pc_next = pc_curr + 4;
+
+		pc_curr = pc_next;
+
 		cc++;
 	}
 
